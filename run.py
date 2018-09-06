@@ -90,7 +90,7 @@ def parse_command_line(argv):
                                      formatter_class=formatter_class)
     parser.add_argument("-v", "--verbose",
                         action="store_true",
-                        help="increases log verbosity")
+                        help="Increases log verbosity.")
     parser.add_argument("-d", "--directory", dest="dir", nargs=1,
                         help="The directory to recursively process.")
     parser.add_argument("-t", "--tmpl", dest="tmpl", nargs=1,
@@ -103,6 +103,8 @@ def parse_command_line(argv):
                         help="Name of project to use.")
     parser.add_argument("-u", "--projecturl", dest="projecturl", nargs=1,
                         help="Url of project to use.")
+    parser.add_argument("-r", "--replace", action="store_true",
+                        help="Replace file header when existing license found.")
     arguments = parser.parse_args(argv[1:])
     return arguments
 
@@ -304,45 +306,41 @@ def main():
                 dict = read_file(file)
                 if not dict:
                     continue
-                lines = dict["lines"]
-                ## if we have a template: replace or add
-                if templateLines:
-                    with open(file,'w') as fw:
-                        ## if we found a header, replace it
-                        ## otherwise, add it after the lines to skip
-                        headStart = dict["headStart"]
-                        headEnd = dict["headEnd"]
-                        haveLicense = dict["haveLicense"]
-                        fileType = dict["fileType"]
-                        skip = dict["skip"]
-                        logging.debug("headStart: " + str(headStart))
-                        logging.debug("headEnd: " + str(headEnd))
-                        logging.debug("haveLicense: " + str(haveLicense))
-                        logging.debug("fileType: " + str(fileType))
-                        logging.debug("skip: " + str(skip))
-                        if headStart is not None and headEnd is not None and haveLicense:
-                            logging.info("Replacing header in file " + file)
-                            ## first write the lines before the header
-                            fw.writelines(lines[0:headStart])
-                            ## now write the new header from the template lines
-                            fw.writelines(for_type(templateLines,fileType))
-                            ## now write the rest of the lines
-                            fw.writelines(lines[headEnd+1:])
-                        else:
-                            logging.info("Adding header to file " + file)
-                            fw.writelines(lines[0:skip])
-                            fw.writelines(for_type(templateLines,fileType))
-                            fw.writelines(lines[skip:])
-                    ## TODO: remove backup unless option -b
-                else: ## no template lines, just update the line with the year, if we found a year
-                    yearsLine = dict["yearsLine"]
-                    if yearsLine is not None:
-                        # make_backup(file)
-                        with open(file,'w') as fw:
-                            logging.info("Updating years in file " + file)
-                            fw.writelines(lines[0:yearsLine])
-                            fw.write(yearsPattern.sub(arguments.years,lines[yearsLine]))
-                        ## TODO: remove backup
+                if not templateLines:
+                    logging.error("No templateLines found.")
+                    continue
+                haveLicense = dict["haveLicense"]
+                if haveLicense and not arguments.replace:
+                    logging.info("License header found and no --replace flag was passed. Not replacing header in file " + file)
+                    continue
+                with open(file,'w') as fw:
+                    ## if we found a header, replace it
+                    ## otherwise, add it after the lines to skip
+                    headStart = dict["headStart"]
+                    headEnd = dict["headEnd"]                    
+                    fileType = dict["fileType"]
+                    skip = dict["skip"]
+                    lines = dict["lines"]
+                    logging.debug("headStart: " + str(headStart))
+                    logging.debug("headEnd: " + str(headEnd))
+                    logging.debug("haveLicense: " + str(haveLicense))
+                    logging.debug("fileType: " + str(fileType))
+                    logging.debug("skip: " + str(skip))
+                    logging.debug("replace flag: " + str(arguments.replace))
+                    if headStart is not None and headEnd is not None and haveLicense:
+                        logging.info("Replacing header in file " + file)
+                        ## first write the lines before the header
+                        fw.writelines(lines[0:headStart])
+                        ## now write the new header from the template lines
+                        fw.writelines(for_type(templateLines,fileType))
+                        ## now write the rest of the lines
+                        fw.writelines(lines[headEnd+1:])
+                    else:
+                        logging.info("Adding header to file " + file)
+                        fw.writelines(lines[0:skip])
+                        fw.writelines(for_type(templateLines,fileType))
+                        fw.writelines(lines[skip:])
+                    
     finally:
         logging.shutdown()
 
