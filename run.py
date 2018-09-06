@@ -12,7 +12,6 @@ import sys
 import datetime
 
 # Set script variables
-__version__ = '1.0'  
 __years__ = datetime.datetime.now().year
 
 # for each processing type, the detailed settings of how to process files of that type
@@ -70,7 +69,7 @@ typeSettings = {
 ext2type = {}
 patterns = []
 yearsPattern = re.compile(r"Copyright\s*(?:\(\s*[C|c|©]\s*\)\s*)?([0-9][0-9][0-9][0-9](?:-[0-9][0-9]?[0-9]?[0-9]?))",re.IGNORECASE)
-licensePattern = re.compile(r"license",re.IGNORECASE)
+licensePattern = re.compile(r"license|copyright",re.IGNORECASE)
 emptyPattern = re.compile(r'^\s*$')
 
 def parse_command_line(argv):
@@ -126,9 +125,9 @@ def read_template(templateFile, dict):
     return lines
 
 # format the template lines for the given type
-def for_type(templatelines,type):
+def for_type(templatelines,fileType):
     lines = []
-    settings = typeSettings[type]
+    settings = typeSettings[fileType]
     headerStartLine = settings["headerStartLine"]
     headerEndLine = settings["headerEndLine"]
     headerLinePrefix = settings["headerLinePrefix"]
@@ -167,10 +166,10 @@ def read_file(file):
     haveLicense = False
     extension = os.path.splitext(file)[1]
     ## if we have no entry in the mapping from extensions to processing type, return None
-    type = ext2type.get(extension)
-    if not type:
+    fileType = ext2type.get(extension)
+    if not fileType:
         return None
-    settings = typeSettings.get(type)
+    settings = typeSettings.get(fileType)
     with open(file,'r') as f:
         lines = f.readlines()
     ## now iterate throw the lines and try to determine the various indies
@@ -196,37 +195,37 @@ def read_file(file):
             break
         else:
             ## we have reached something else, so no header in this file
-            return {"type":type, "lines":lines, "skip":skip, "headStart":None, "headEnd":None, "yearsLine": None, "settings":settings, "haveLicense": haveLicense}
+            return {"fileType":fileType, "lines":lines, "skip":skip, "headStart":None, "headEnd":None, "yearsLine": None, "settings":settings, "haveLicense": haveLicense}
         i = i+1
     ## now we have either reached the end, or we are at a line where a block start or line comment occurred
     # if we have reached the end, return default dictionary without info
     if i == len(lines):
-        return {"type":type, "lines":lines, "skip":skip, "headStart":headStart, "headEnd":headEnd, "yearsLine": yearsLine, "settings":settings, "haveLicense": haveLicense}
+        return {"fileType":fileType, "lines":lines, "skip":skip, "headStart":headStart, "headEnd":headEnd, "yearsLine": yearsLine, "settings":settings, "haveLicense": haveLicense}
     # otherwise process the comment block until it ends
     if blockCommentStartPattern:
         for j in range(i,len(lines)):
             if licensePattern.findall(lines[j]):
                 haveLicense = True
             elif blockCommentEndPattern.findall(lines[j]):
-                return {"type":type, "lines":lines, "skip":skip, "headStart":headStart, "headEnd":j, "yearsLine": yearsLine, "settings":settings, "haveLicense": haveLicense}
+                return {"fileType":fileType, "lines":lines, "skip":skip, "headStart":headStart, "headEnd":j, "yearsLine": yearsLine, "settings":settings, "haveLicense": haveLicense}
             elif yearsPattern.findall(lines[j]):
                 haveLicense = True
                 yearsLine = j
         # if we went through all the lines without finding an end, maybe we have some syntax error or some other
         # unusual situation, so lets return no header
-        return {"type":type, "lines":lines, "skip":skip, "headStart":None, "headEnd":None, "yearsLine": None, "settings":settings, "haveLicense": haveLicense}
+        return {"fileType":fileType, "lines":lines, "skip":skip, "headStart":None, "headEnd":None, "yearsLine": None, "settings":settings, "haveLicense": haveLicense}
     else:
         for j in range(i,len(lines)-1):
             if lineCommentStartPattern.findall(lines[j]) and licensePattern.findall(lines[j]):
                 haveLicense = True
             elif not lineCommentStartPattern.findall(lines[j]):
-                return {"type":type, "lines":lines, "skip":skip, "headStart":i, "headEnd":j-1, "yearsLine": yearsLine, "settings":settings, "haveLicense": haveLicense}
+                return {"fileType":fileType, "lines":lines, "skip":skip, "headStart":i, "headEnd":j-1, "yearsLine": yearsLine, "settings":settings, "haveLicense": haveLicense}
             elif yearsPattern.findall(lines[j]):
                 haveLicense = True
                 yearsLine = j
         ## if we went through all the lines without finding the end of the block, it could be that the whole
         ## file only consisted of the header, so lets return the last line index
-        return {"type":type, "lines":lines, "skip":skip, "headStart":i, "headEnd":len(lines)-1, "yearsLine": yearsLine, "settings":settings, "haveLicense": haveLicense}
+        return {"fileType":fileType, "lines":lines, "skip":skip, "headStart":i, "headEnd":len(lines)-1, "yearsLine": yearsLine, "settings":settings, "haveLicense": haveLicense}
 
 
 def main():
@@ -299,8 +298,7 @@ def main():
             logging.error("No template specified. Please at -t <name> and run again.")
             error = True
         if not error:
-            ## now do the actual processing: if we did not get some error, we have a template loaded or no template at all
-            ## if we have no template, then we will have the years.
+            ## now do the actual processing: if we did not get some error, we have a template loaded
             ## now process all the files and either replace the years or replace/add the header
             for file in get_paths(patterns,start_dir):
                 dict = read_file(file)
@@ -309,27 +307,31 @@ def main():
                 lines = dict["lines"]
                 ## if we have a template: replace or add
                 if templateLines:
-                    # make_backup(file)
                     with open(file,'w') as fw:
                         ## if we found a header, replace it
                         ## otherwise, add it after the lines to skip
                         headStart = dict["headStart"]
                         headEnd = dict["headEnd"]
                         haveLicense = dict["haveLicense"]
-                        type = dict["type"]
+                        fileType = dict["fileType"]
                         skip = dict["skip"]
+                        logging.debug("headStart: " + str(headStart))
+                        logging.debug("headEnd: " + str(headEnd))
+                        logging.debug("haveLicense: " + str(haveLicense))
+                        logging.debug("fileType: " + str(fileType))
+                        logging.debug("skip: " + str(skip))
                         if headStart is not None and headEnd is not None and haveLicense:
                             logging.info("Replacing header in file " + file)
                             ## first write the lines before the header
                             fw.writelines(lines[0:headStart])
                             ## now write the new header from the template lines
-                            fw.writelines(for_type(templateLines,type))
+                            fw.writelines(for_type(templateLines,fileType))
                             ## now write the rest of the lines
                             fw.writelines(lines[headEnd+1:])
                         else:
                             logging.info("Adding header to file " + file)
                             fw.writelines(lines[0:skip])
-                            fw.writelines(for_type(templateLines,type))
+                            fw.writelines(for_type(templateLines,fileType))
                             fw.writelines(lines[skip:])
                     ## TODO: remove backup unless option -b
                 else: ## no template lines, just update the line with the year, if we found a year
