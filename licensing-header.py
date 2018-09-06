@@ -68,6 +68,7 @@ typeSettings = {
 
 ext2type = {}
 patterns = []
+validationArr = []
 yearsPattern = re.compile(r"Copyright\s*(?:\(\s*[C|c|©]\s*\)\s*)?([0-9][0-9][0-9][0-9](?:-[0-9][0-9]?[0-9]?[0-9]?))",re.IGNORECASE)
 licensePattern = re.compile(r"license|copyright",re.IGNORECASE)
 emptyPattern = re.compile(r'^\s*$')
@@ -91,20 +92,30 @@ def parse_command_line(argv):
     parser.add_argument("-v", "--verbose",
                         action="store_true",
                         help="Increases log verbosity.")
-    parser.add_argument("-d", "--directory", dest="dir", nargs=1,
+    parser.add_argument("-d", "--directory", 
+                        dest="dir", nargs=1,
                         help="The directory to recursively process.")
-    parser.add_argument("-t", "--tmpl", dest="tmpl", nargs=1,
+    parser.add_argument("-t", "--tmpl", 
+                        dest="tmpl", nargs=1,
                         help="Template name or file to use.")
-    parser.add_argument("-y", "--years", dest="years", nargs=1,
+    parser.add_argument("-y", "--years", 
+                        dest="years", nargs=1,
                         help="Year or year range to use.")
-    parser.add_argument("-o", "--copyrightowner", dest="owner", nargs=1,
+    parser.add_argument("-o", "--copyrightowner", 
+                        dest="owner", nargs=1,
                         help="Name of copyright owner to use.")
-    parser.add_argument("-n", "--projectname", dest="projectname", nargs=1,
+    parser.add_argument("-n", "--projectname", 
+                        dest="projectname", nargs=1,
                         help="Name of project to use.")
-    parser.add_argument("-u", "--projecturl", dest="projecturl", nargs=1,
+    parser.add_argument("-u", "--projecturl", 
+                        dest="projecturl", nargs=1,
                         help="Url of project to use.")
-    parser.add_argument("-r", "--replace", action="store_true",
+    parser.add_argument("-r", "--replace", 
+                        action="store_true",
                         help="Replace file header when existing license found.")
+    parser.add_argument("-V", "--validate",
+                        action="store_true",
+                        help="Validate whether source files need the header.")
     arguments = parser.parse_args(argv[1:])
     return arguments
 
@@ -146,9 +157,6 @@ def for_type(templatelines,fileType):
     if headerEndLine is not None:
         lines.append(headerEndLine)
     return lines
-
-def make_backup(file):
-    copyfile(file,file+".bak")
 
 ## read a file and return a dictionary with the following elements:
 ## lines: array of lines
@@ -245,18 +253,22 @@ def main():
         }
         templateLines = None
         arguments = parse_command_line(sys.argv)
+        # set logging
         if arguments.verbose:
             logging.basicConfig(stream=sys.stderr, level=logging.DEBUG)
         else:
             logging.basicConfig(stream=sys.stderr, level=logging.INFO)
+        # set directory
         if arguments.dir:
             start_dir = arguments.dir[0]
         else:
             start_dir = "."
+        # set years
         if arguments.years:
             settings["years"] = arguments.years[0]
         else:
             settings["years"] = __years__
+        # set copyright owner
         if arguments.owner:
             settings["owner"] = arguments.owner[0]
         if arguments.projectname:
@@ -309,9 +321,13 @@ def main():
                     logging.error("No templateLines found.")
                     continue
                 haveLicense = dict["haveLicense"]
+                if arguments.validate and not haveLicense:
+                    logging.debug("Validation flag found and file " + file + " doesn't have a license.")
+                    validationArr.append(file)
+                    continue
                 if haveLicense and not arguments.replace:
                     logging.info("License header found and no --replace flag was passed. Not replacing header in file " + file)
-                    continue
+                    continue            
                 with open(file,'w') as fw:
                     ## if we found a header, replace it
                     ## otherwise, add it after the lines to skip
@@ -339,7 +355,10 @@ def main():
                         fw.writelines(lines[0:skip])
                         fw.writelines(for_type(templateLines,fileType))
                         fw.writelines(lines[skip:])
-                    
+            if arguments.validate:
+                count = len(validationArr)
+                print("VALIDATION_FAILED:", str(count)) 
+                logging.info("There are " + str(count) + " files without a header.")      
     finally:
         logging.shutdown()
 
