@@ -266,7 +266,6 @@ def main():
         ## if we have a template name specified, try to get or load the template
         if arguments.tmpl:            
             opt_tmpl = arguments.tmpl[0]
-            logging.debug("opt_tmpl: "+ opt_tmpl)
             ## first get all the names of our own templates
             ## for this get first the path of this file
             templatesDir = os.path.join(os.path.dirname(os.path.abspath(__file__)),"templates")
