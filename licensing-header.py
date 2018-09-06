@@ -95,6 +95,9 @@ def parse_command_line(argv):
     parser.add_argument("-d", "--directory", 
                         dest="dir", nargs=1,
                         help="The directory to recursively process.")
+    parser.add_argument("-f", "--files",
+                        dest="files", nargs=1,
+                        help="Analyze provided csv filepaths only.")
     parser.add_argument("-t", "--tmpl", 
                         dest="tmpl", nargs=1,
                         help="Template name or file to use.")
@@ -253,6 +256,7 @@ def main():
         }
         templateLines = None
         arguments = parse_command_line(sys.argv)
+        files = []
         # set logging
         if arguments.verbose:
             logging.basicConfig(stream=sys.stderr, level=logging.DEBUG)
@@ -261,8 +265,18 @@ def main():
         # set directory
         if arguments.dir:
             start_dir = arguments.dir[0]
+            files = get_paths(patterns,start_dir)
+        elif arguments.files:
+            # these are csv filepaths
+            files = arguments.files[0].split(',')
         else:
+            ## defaults to root where script was run
             start_dir = "."
+            files = get_paths(patterns,start_dir)
+        if len(files) < 1:
+            logging.error("No files found.")
+            logging.error("files arr: " + str(files))
+            error = True
         # set years
         if arguments.years:
             settings["years"] = arguments.years[0]
@@ -290,7 +304,8 @@ def main():
             if len(tmpls) == 1:
                 tmplName = tmpls[0][0]
                 tmplFile = tmpls[0][1]
-                logging.info("Using template \"" + tmplName + "\" [" + tmplFile + "]")
+                logging.info("Using template \"" + tmplName + "\"")
+                logging.debug("Template file is located " + tmplFile)
                 templateLines = read_template(tmplFile,settings)
             else:
                 if len(tmpls) == 0:
@@ -313,7 +328,7 @@ def main():
         if not error:
             ## now do the actual processing: if we did not get some error, we have a template loaded
             ## now process all the files and either replace the years or replace/add the header
-            for file in get_paths(patterns,start_dir):
+            for file in files:
                 dict = read_file(file)
                 if not dict:
                     continue
@@ -322,11 +337,11 @@ def main():
                     continue
                 haveLicense = dict["haveLicense"]
                 if arguments.validate and not haveLicense:
-                    logging.debug("Validation flag found and file " + file + " doesn't have a license.")
+                    logging.debug("[validation][hasLicense] " + file + " doesn't have a license.")
                     validationArr.append(file)
                     continue
                 if haveLicense and not arguments.replace:
-                    logging.info("License header found and no --replace flag was passed. Not replacing header in file " + file)
+                    logging.debug("[hasLicense][noreplace] " + file)
                     continue            
                 with open(file,'w') as fw:
                     ## if we found a header, replace it
@@ -357,8 +372,16 @@ def main():
                         fw.writelines(lines[skip:])
             if arguments.validate:
                 count = len(validationArr)
-                print("VALIDATION_FAILED:", str(count)) 
-                logging.info("There are " + str(count) + " files without a header.")      
+                if (count > 0):              
+                    logging.info("VALIDATION_VALID: false")
+                    logging.info("VALIDATION_COUNT: " + str(count))
+                    logging.info("There are " + str(count) + " files without a header.")
+                    logging.info("VALIDATION_FILES:")
+                    for file in validationArr:
+                        print(file)
+                else:
+                    logging.info("VALIDATION_VALID: true")
+                    logging.info("There are " + str(count) + " files without a header.")
     finally:
         logging.shutdown()
 
