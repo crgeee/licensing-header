@@ -95,6 +95,9 @@ ENV/
 env.bak/
 venv.bak/
 
+./examples/MainVerticle.java
+./templates/sscpac.tmpl
+
 # Spyder project settings
 .spyderproject
 .spyproject
@@ -125,4 +128,3 @@ dmypy.json
 pyvenv.cfg
 pip-selfcheck.json
 
-examples/sscpac.tmpl
