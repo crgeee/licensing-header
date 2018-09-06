@@ -277,6 +277,8 @@ def main():
             logging.error("No files found.")
             logging.error("files arr: " + str(files))
             error = True
+        else:
+            logging.debug("files arr: " + str(files))
         # set years
         if arguments.years:
             settings["years"] = arguments.years[0]
@@ -375,12 +377,13 @@ def main():
                 if (count > 0):              
                     logging.info("VALIDATION_VALID: false")
                     logging.info("VALIDATION_COUNT: " + str(count))
-                    logging.info("There are " + str(count) + " files without a header.")
                     logging.info("VALIDATION_FILES:")
                     for file in validationArr:
                         print(file)
+                    logging.info("There are " + str(count) + " files without a header.")
                 else:
                     logging.info("VALIDATION_VALID: true")
+                    logging.info("VALIDATION_COUNT: " + str(count))
                     logging.info("There are " + str(count) + " files without a header.")
     finally:
         logging.shutdown()

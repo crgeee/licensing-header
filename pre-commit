@@ -1,0 +1,70 @@
+#!/bin/bash
+
+# Settings
+PROMPT_ENABLED=true
+
+# Create vars
+HOOKS=`pwd`"/.git/hooks/"
+SRC_DIR=`pwd`"/src"
+PY_FILE=$HOOKS"/licensing-header.py"
+LOG_FILE=$HOOKS"/pre-commit.log"
+TIMESTAMP=`date "+%Y%m%d-%H%M%S"`
+
+# Colors
+cYellow='\033[01;33m'
+cNone='\033[00m'
+
+# Check log file exists. If not, create
+if [ ! -f $LOG_FILE ]
+then
+    touch $LOG_FILE
+fi
+
+# Begin new log entry
+echo "------------------------------" >> $LOG_FILE
+echo "$TIMESTAMP" >> $LOG_FILE
+echo "[pre-commit hook] Begin licensing header check." | tee -a "$LOG_FILE"
+
+# TODO get STAGED files
+
+# echo "[pre-commit hook] Analyzing $SRC directory." | tee -a "$LOG_FILE"
+# VALIDATION_RESULT=$(python $PY_FILE -t "sscpac" -d $SRC -V 2>&1)
+
+VALIDATION_RESULT=$(python $PY_FILE -V -t "sscpac" -f $FILES 2>&1)
+
+echo "$VALIDATION_RESULT" >> $LOG_FILE
+VALIDATION_VALID=$(echo $VALIDATION_RESULT | grep -oP "(?<=\bVALIDATION_VALID:\s)(\w+)")
+VALIDATION_COUNT=$(echo $VALIDATION_RESULT | grep -oP "(?<=\bVALIDATION_COUNT:\s)(\w+)")
+
+if [[ $VALIDATION_VALID = "false" ]]
+then
+    echo "[pre-commit hook] Validation found ${VALIDATION_COUNT} files missing headers."  
+
+    # If prompt is disabled, warn user and quit 
+    if [[ $PROMPT_ENABLED = "false" ]]
+    then
+        echo -e "[pre-commit hook]${cYellow} WARN: pre-commit hook prompt is disabled. ${cNone}"
+        echo -e "[pre-commit hook]${cYellow} WARN: Your commit will not be allowed until the following files are fixed. ${cNone}"
+        exit 1;
+    fi
+
+    # Allows us to read user input below, assigns stdin to keyboard
+    exec < /dev/tty
+    while true; do
+    read -p "[pre-commit hook] Do you want to modify files? [Y/n] " yn
+        if [ "$yn" = "" ]; then
+            # default to NO
+            yn='N'
+        fi
+        echo "[pre-commit hook] User Answered: $yn" >> $LOG_FILE
+        case $yn in
+            # [Yy] ) python $PY_FILE -t "sscpac" -d $SRC; exit 0;;
+            [Yy] ) python $PY_FILE -t "sscpac" -f $FILES; exit 0;;           
+            [Nn] ) exit 0;;
+            * ) echo "[pre-commit hook] Please answer y or n for yes or no.";;
+        esac        
+    done
+else
+    echo "[pre-commit hook] License header validation passed." | tee -a "$LOG_FILE"
+    exit 0
+fi
