@@ -1,15 +1,23 @@
 #!/bin/bash
 
 ### TODOs section
-# 1. add support for yaml
-# 2. if directory mode is selected, should .gitignore be checked?
-# 3. add a readme file
-# 4. come up with solution for repo storage
+# - if directory mode is selected, should .gitignore be checked?
+# - add a readme file
+# - come up with solution for repo storage
 
 # Settings
-PROMPT_ENABLED=true # if enabled, user will be prompted to modify files that failed validation
-MODE="staged" # options: staged or directory; staged will use git staged files
-SRC_DIR="/src" # if MODE is set to directory, set source dir
+
+### PROMPT MODE ###
+# enabled: user will be prompted to modify files that failed validation 
+# disabled: user will not be prompted, but commit won't be made
+# auto: user will not be prompted, file modification will be made
+PROMPT_MODE="auto" 
+
+### FILE MODE ###
+# staged: staged will use git staged files
+# directory: use SRC_DIR to pass a source directory path as opposed to files
+FILE_MODE="staged"
+SRC_DIR="/src" # only used if FILE_MODE="directory"
 
 # Create vars
 HOOKS=`pwd`"/.git/hooks/"
@@ -20,8 +28,9 @@ FILES=""
 
 # Colors
 cGreen='\033[01;32m'
-cYellow='\033[01;33m'
 cNone='\033[00m'
+cRed='\033[01;31m'
+cYellow='\033[01;33m'
 
 # Check log file exists. If not, create
 if [ ! -f $LOG_FILE ]
@@ -33,9 +42,9 @@ fi
 echo "------------------------------" >> $LOG_FILE
 echo "$TIMESTAMP" >> $LOG_FILE
 echo "[pre-commit hook] Begin licensing header check." | tee -a "$LOG_FILE"
-echo "[pre-commit hook] MODE variable: ${MODE}" >> $LOG_FILE
+echo "[pre-commit hook] FILE_MODE variable: ${FILE_MODE}" >> $LOG_FILE
 
-if [[ "$MODE" = "staged" ]];
+if [[ "$FILE_MODE" = "staged" ]];
 then
     STAGED_FILES=$(git diff --cached --name-only --diff-filter=ACM)
     if [[ "$STAGED_FILES" = "" ]];
@@ -54,7 +63,16 @@ echo "$FILES" >> $LOG_FILE
 # echo "[pre-commit hook] Analyzing $SRC directory." | tee -a "$LOG_FILE"
 # VALIDATION_RESULT=$(python $PY_FILE -t "sscpac" -d $SRC -V 2>&1)
 
-VALIDATION_RESULT=$(python $PY_FILE -V -t "sscpac" -f $FILES 2>&1)
+VALIDATION_RESULT=$(python $PY_FILE -V -v -t "sscpac" -f $FILES 2>&1)
+# $? =  is the exit status of the most recently-executed command; 
+# by convention, 0 means success and anything else indicates failure. 
+if [ ! $? -eq 0 ];
+then
+    # Redirect stdout from echo command to stderr.
+    echo -e "${cRed}[pre-commit hook] Python validation script exited with error. See pre-commit.log for more info. ${cNone}" >&2
+    exit 1
+fi
+
 echo "[pre-commit hook] VALIDATION_RESULT variable: " >> $LOG_FILE
 echo "$VALIDATION_RESULT" >> $LOG_FILE
 VALIDATION_VALID=$(echo $VALIDATION_RESULT | grep -oP "(?<=\bVALIDATION_VALID:\s)(\w+)")
@@ -65,11 +83,26 @@ then
     echo "[pre-commit hook] Validation found ${VALIDATION_COUNT} files missing headers." | tee -a "$LOG_FILE"
 
     # If prompt is disabled, warn user and quit 
-    if [[ $PROMPT_ENABLED = "false" ]];
+    if [[ $PROMPT_MODE = "disabled" ]];
     then
         echo -e "${cYellow}[pre-commit hook] WARN: pre-commit hook interactive prompt is disabled. ${cNone}" | tee -a "$LOG_FILE"
         echo -e "${cYellow}[pre-commit hook] WARN: Your commit was not made. Use --no-verify to skip pre-commit hook. ${cNone}" | tee -a "$LOG_FILE"
-        exit 1;
+        exit 1
+    fi
+
+    if [[ $PROMPT_MODE = "auto" ]];
+    then
+        echo -e "${cYellow}[pre-commit hook] WARN: pre-commit hook interactive prompt is set to auto. ${cNone}" | tee -a "$LOG_FILE"
+        python $PY_FILE -t "sscpac" -f $FILES
+        if [ $? -eq 0 ];
+        then
+            echo -e "${cGreen}[pre-commit hook] Script completed. Please validate the changes and resubmit your commit. ${cNone}" | tee -a "$LOG_FILE";
+            exit 0
+        else
+            # Redirect stdout from echo command to stderr.
+            echo -e "${cRed}[pre-commit hook] Python licensing script exited with error. See pre-commit.log for more info. ${cNone}" >&2
+            exit 1
+        fi
     fi
 
     # Allows us to read user input below, assigns stdin to keyboard
@@ -84,8 +117,18 @@ then
         echo "[pre-commit hook] User Answered: $yn" >> $LOG_FILE
         case $yn in
             # [Yy] ) python $PY_FILE -t "sscpac" -d $SRC; exit 0;;
-            [Yy] ) python $PY_FILE -t "sscpac" -f $FILES; echo -e "${cGreen}[pre-commit hook] Script completed. Please validate the changes and resubmit your commit. ${cNone}"; exit 0;;           
-            [Nn] ) echo -e "${cYellow}[pre-commit hook] WARN: Your commit was not made. Use --no-verify to skip pre-commit hook. ${cNone}"; exit 1;;
+            [Yy] ) python $PY_FILE -t "sscpac" -f $FILES
+                if [ $? -eq 0 ];
+                then
+                    echo -e "${cGreen}[pre-commit hook] Script completed. Please validate the changes and resubmit your commit. ${cNone}" | tee -a "$LOG_FILE";
+                    exit 0
+                else
+                    # Redirect stdout from echo command to stderr.
+                    echo -e "${cRed}[pre-commit hook] Python licensing script exited with error. See pre-commit.log for more info. ${cNone}" >&2
+                    exit 1
+                fi
+                ;;
+            [Nn] ) echo -e "${cYellow}[pre-commit hook] WARN: Your commit was not made. Use --no-verify to skip pre-commit hook. ${cNone}" | tee -a "$LOG_FILE"; exit 1;;
             * ) echo "[pre-commit hook] Please answer y or n for yes or no.";;
         esac        
     done
