@@ -1,6 +1,11 @@
 #!/usr/bin/env python
 # encoding: utf-8
 
+### TODO section ###
+# - add support for yaml
+# - should consider an ignore flag?
+# - update readme
+
 import os
 import re
 import argparse

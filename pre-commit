@@ -1,5 +1,11 @@
 #!/bin/bash
 
+### TODOs section
+# 1. add support for yaml
+# 2. if directory mode is selected, should .gitignore be checked?
+# 3. add a readme file
+# 4. come up with solution for repo storage
+
 # Settings
 PROMPT_ENABLED=true # if enabled, user will be prompted to modify files that failed validation
 MODE="staged" # options: staged or directory; staged will use git staged files
