@@ -23,7 +23,9 @@ optional arguments:
 
 ## git pre-commit hook
 
-pre-commit is a bash script for using with git as a pre
+The file pre-commit is a bash git pre-commit script used for calling the licensing-header.py script with every commit. This script allows for customization in how the user wants to be notified when a file fails validation and doesn't have the header.
+
+To use this file, add the following to your git repo's .git/hooks directory:
 
 ## License
 
