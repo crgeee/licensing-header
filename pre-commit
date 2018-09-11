@@ -9,7 +9,7 @@
 
 ### PROMPT MODE ###
 # enabled: user will be prompted to modify files that failed validation 
-# disabled: user will not be prompted, but commit won't be made
+# disabled: user will not be prompted, file modification won't be made
 # auto: user will not be prompted, file modification will be made
 PROMPT_MODE="auto" 
 
