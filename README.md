@@ -6,7 +6,7 @@ This tool can be used to scan a directory path or set of file paths for the dete
 
 **The python script can be run standalone or in conjunction with a git pre-commit hook.**
 
-```python
+```bash
 usage: licensing-header.py [-h] [-v] [-d DIR] [-f FILES] [-t TMPL] [-y YEARS] [-o OWNER] [-n PROJECTNAME] [-u PROJECTURL] [-r] [-V]
 
 optional arguments:
@@ -72,7 +72,7 @@ Options:
 - **staged**: staged will use git staged files
 - **directory**: set SRC_DIR to pass a source directory path as opposed to files
 
-## Install
+## Local Install
 
 1. Add the following to your git repo's .git/hooks directory:
    - licensing-header.py
