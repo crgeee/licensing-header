@@ -1,10 +1,5 @@
 #!/bin/bash
 
-### TODOs section
-# - if directory mode is selected, should .gitignore be checked?
-# - add a readme file
-# - come up with solution for repo storage
-
 # Settings
 
 ### PROMPT MODE ###
